@@ -133,9 +133,17 @@ public class GenericMailProvider implements MailProvider {
                     // 处理邮件内容
                     Object content = message.getContent();
                     if (content instanceof String) {
-                        email.setContent((String) content);
+                        if (message.isMimeType("text/html")) {
+                            email.setHtmlContent((String) content);
+                        } else {
+                            email.setContent((String) content);
+                        }
                     } else if (content instanceof MimeMultipart) {
-                        email.setContent(getTextFromMimeMultipart((MimeMultipart) content));
+                        StringBuilder textBody = new StringBuilder();
+                        StringBuilder htmlBody = new StringBuilder();
+                        extractContentFromMimeMultipart((MimeMultipart) content, textBody, htmlBody);
+                        email.setContent(textBody.toString());
+                        email.setHtmlContent(htmlBody.toString());
                     }
                 } catch (IOException e) {
                     // 处理IO异常
@@ -177,27 +185,17 @@ public class GenericMailProvider implements MailProvider {
         return emails;
     }
 
-    private String getTextFromMimeMultipart(MimeMultipart mimeMultipart) throws MessagingException {
-        StringBuilder result = new StringBuilder();
-        try {
-            int count = mimeMultipart.getCount();
-            for (int i = 0; i < count; i++) {
-                BodyPart bodyPart = mimeMultipart.getBodyPart(i);
-                if (bodyPart.isMimeType("text/plain")) {
-                    result.append((String) bodyPart.getContent());
-                    break;
-                } else if (bodyPart.isMimeType("text/html")) {
-                    String html = (String) bodyPart.getContent();
-                    result.append(html);
-                    break;
-                } else if (bodyPart.getContent() instanceof MimeMultipart) {
-                    result.append(getTextFromMimeMultipart((MimeMultipart) bodyPart.getContent()));
-                }
+    private void extractContentFromMimeMultipart(MimeMultipart mimeMultipart, StringBuilder textBody, StringBuilder htmlBody) throws MessagingException, IOException {
+        int count = mimeMultipart.getCount();
+        for (int i = 0; i < count; i++) {
+            BodyPart bodyPart = mimeMultipart.getBodyPart(i);
+            if (bodyPart.isMimeType("text/plain")) {
+                textBody.append((String) bodyPart.getContent());
+            } else if (bodyPart.isMimeType("text/html")) {
+                htmlBody.append((String) bodyPart.getContent());
+            } else if (bodyPart.getContent() instanceof MimeMultipart) {
+                extractContentFromMimeMultipart((MimeMultipart) bodyPart.getContent(), textBody, htmlBody);
             }
-        } catch (IOException e) {
-            // 处理IO异常
-            result.append("无法读取邮件内容");
         }
-        return result.toString();
     }
 }

@@ -8,4 +8,5 @@ public class Email {
     private String from;
     private String date;
     private String content;
+    private String htmlContent;
 }
