@@ -298,7 +298,46 @@
                                     emailContent = emailContent.replace(/(?:[ \t]*\r?\n){2,}/g, '<br><br>').replace(/\r?\n/g, '<br>');
                                 }
                                 
-                                if (!isHtml) {
+                                const highlightCode = (text) => {
+                                    return `<span class="verification-code">${text}<span class="copy-icon" onclick="copyToClipboard('${text}', this)">📋</span></span>`;
+                                };
+                                
+                                if (isHtml) {
+                                    try {
+                                        const parser = new DOMParser();
+                                        const doc = parser.parseFromString(emailContent, 'text/html');
+                                        const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
+                                        const nodesToReplace = [];
+                                        const codeRegex = /(^|[\s\u00A0])(\d{4,6})([\s\u00A0]|$)/g;
+
+                                        while (walker.nextNode()) {
+                                            const node = walker.currentNode;
+                                            if (node.parentElement && ['SCRIPT', 'STYLE', 'TEXTAREA'].includes(node.parentElement.tagName)) {
+                                                continue;
+                                            }
+                                            // Reset regex lastIndex for test() called on different strings? 
+                                            // Actually regex with 'g' flag maintains state. Better create new or reset.
+                                            codeRegex.lastIndex = 0; 
+                                            if (codeRegex.test(node.textContent)) {
+                                                nodesToReplace.push(node);
+                                            }
+                                        }
+
+                                        nodesToReplace.forEach(node => {
+                                            const text = node.textContent;
+                                            const span = document.createElement('span');
+                                            codeRegex.lastIndex = 0; 
+                                            span.innerHTML = text.replace(codeRegex, (match, p1, p2, p3) => {
+                                                return `${p1}${highlightCode(p2)}${p3}`;
+                                            });
+                                            node.parentNode.replaceChild(span, node);
+                                        });
+                                        emailContent = doc.body.innerHTML;
+                                    } catch (e) {
+                                        console.error('Error parsing HTML content:', e);
+                                        // Fallback to original content if parsing fails
+                                    }
+                                } else {
                                     // 只匹配4-6位纯数字的验证码，同时处理包含<br>标签的情况
                                     const codeRegex = /(?:^|\s|<br>)(\d{4,6})(?:\s|<br>|$)/g;
                                     emailContent = emailContent.replace(codeRegex, function(match, p1) {
@@ -306,7 +345,7 @@
                                         if (match.charAt(0) === ' ' || match.charAt(match.length - 1) === ' ' || 
                                             match.charAt(0) === '\n' || match.charAt(match.length - 1) === '\n' ||
                                             match.includes('<br>')) {
-                                            return ` <span class="verification-code">${p1}<span class="copy-icon" onclick="copyToClipboard('${p1}', this)">📋</span></span> `;
+                                            return ` ${highlightCode(p1)} `;
                                         }
                                         return match;
                                     });

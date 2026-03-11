@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: mail-service
+
+server:
+  port: ${SERVER_PORT:8144}
+
+mail:
+  provider: ${MAIL_PROVIDER:generic}
+  server:
+    host: imap.qq.com
+    port: 993
+    protocol: imap
+    username: 2792103752@qq.com
+    password: agdtynccfuovdddi
+    folder: ${MAIL_SERVER_FOLDER:INBOX}
+    readtimeout: ${MAIL_SERVER_READTIMEOUT:20000}
+
+app:
+  password: 123456
+
+logging:
+  config: classpath:log4j2.xml
